@@ -248,3 +248,61 @@ exports.logout = async (req, res, next) => {
     message: 'User logged out successfully'
   });
 };
+
+// @desc    Social login (Google, Facebook, LinkedIn)
+// @route   POST /api/auth/social-login
+// @access  Public
+exports.socialLogin = async (req, res, next) => {
+  try {
+    const { provider, providerId, name, email, photo, accessToken } = req.body;
+
+    // Validation
+    if (!provider || !providerId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide provider, providerId, and email'
+      });
+    }
+
+    // Check if user already exists with this email
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // User exists, update social provider info if not already set
+      if (!user.socialProviders) {
+        user.socialProviders = {};
+      }
+
+      if (!user.socialProviders[provider]) {
+        user.socialProviders[provider] = {
+          id: providerId,
+          accessToken: accessToken
+        };
+        await user.save();
+      }
+    } else {
+      // Create new user with social provider info
+      user = await User.create({
+        name: name || 'Social User',
+        email,
+        password: crypto.randomBytes(32).toString('hex'), // Random password for social users
+        photo,
+        socialProviders: {
+          [provider]: {
+            id: providerId,
+            accessToken: accessToken
+          }
+        },
+        isActive: true
+      });
+    }
+
+    sendTokenResponse(user, 200, res);
+  } catch (error) {
+    console.error('Social login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during social login'
+    });
+  }
+};

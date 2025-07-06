@@ -26,6 +26,24 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
+  photo: {
+    type: String,
+    default: null
+  },
+  socialProviders: {
+    google: {
+      id: String,
+      accessToken: String
+    },
+    facebook: {
+      id: String,
+      accessToken: String
+    },
+    linkedin: {
+      id: String,
+      accessToken: String
+    }
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   isActive: {
