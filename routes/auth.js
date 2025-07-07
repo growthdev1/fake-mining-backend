@@ -6,6 +6,7 @@ const {
   getMe,
   forgotPassword,
   resetPassword,
+  updatePasswordDirect,
   logout
 } = require('../controllers/authController');
 
@@ -19,6 +20,7 @@ router.post('/login', login);
 router.post('/social-login', socialLogin);
 router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);
+router.post('/update-password-direct', updatePasswordDirect); // For testing purposes
 
 // Protected routes
 router.get('/me', auth, getMe);

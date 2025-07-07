@@ -234,6 +234,49 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
+// @desc    Update password directly (for testing purposes)
+// @route   POST /api/auth/update-password-direct
+// @access  Public (for testing only)
+exports.updatePasswordDirect = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update password directly
+    user.password = password;
+    await user.save();
+
+    console.log(`Password updated directly for user: ${email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Direct password update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 // @desc    Logout user / clear cookie
 // @route   GET /api/auth/logout
 // @access  Private
