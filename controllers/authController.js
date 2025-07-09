@@ -31,10 +31,62 @@ exports.register = async (req, res, next) => {
     const user = await User.create({
       name,
       email,
-      password
+      password,
+      emailVerified: false
     });
 
-    sendTokenResponse(user, 201, res);
+    // Generate email verification token
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Create verification URL
+    const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
+
+    const message = `Please verify your email by clicking on this link: \n\n ${verificationUrl}`;
+    const htmlMessage = `
+      <h2>Email Verification</h2>
+      <p>Please verify your email by clicking the link below:</p>
+      <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+      <p>If the button doesn't work, copy and paste this link in your browser:</p>
+      <p>${verificationUrl}</p>
+      <p>This link will expire in 24 hours.</p>
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Email Verification',
+        message,
+        html: htmlMessage
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully. Please check your email to verify your account.',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          emailVerified: user.emailVerified
+        }
+      });
+    } catch (err) {
+      console.error('Email send error:', err);
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully, but email verification could not be sent. Please contact support.',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          emailVerified: user.emailVerified
+        }
+      });
+    }
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({
@@ -76,6 +128,20 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
+      });
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before logging in',
+        emailVerified: false,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email
+        }
       });
     }
 
@@ -337,7 +403,8 @@ exports.socialLogin = async (req, res, next) => {
             accessToken: accessToken
           }
         },
-        isActive: true
+        isActive: true,
+        emailVerified: true // Social logins are pre-verified
       });
     }
 
@@ -347,6 +414,127 @@ exports.socialLogin = async (req, res, next) => {
     res.status(500).json({
       success: false,
       message: 'Server error during social login'
+    });
+  }
+};
+
+// @desc    Verify email
+// @route   GET /api/auth/verify-email/:token
+// @access  Public
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    // Get hashed token
+    const emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      emailVerificationToken,
+      emailVerificationExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification token'
+      });
+    }
+
+    // Set email as verified
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpire = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during email verification'
+    });
+  }
+};
+
+// @desc    Resend email verification
+// @route   POST /api/auth/resend-verification
+// @access  Public
+exports.resendEmailVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an email address'
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already verified'
+      });
+    }
+
+    // Generate new verification token
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Create verification URL
+    const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
+
+    const message = `Please verify your email by clicking on this link: \n\n ${verificationUrl}`;
+    const htmlMessage = `
+      <h2>Email Verification</h2>
+      <p>Please verify your email by clicking the link below:</p>
+      <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+      <p>If the button doesn't work, copy and paste this link in your browser:</p>
+      <p>${verificationUrl}</p>
+      <p>This link will expire in 24 hours.</p>
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Email Verification',
+        message,
+        html: htmlMessage
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Verification email sent successfully'
+      });
+    } catch (err) {
+      console.error('Email send error:', err);
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Email could not be sent'
+      });
+    }
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
