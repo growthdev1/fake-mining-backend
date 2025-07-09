@@ -9,6 +9,7 @@ const {
   updatePasswordDirect,
   logout,
   verifyEmail,
+  verifyEmailOTP,
   resendEmailVerification
 } = require('../controllers/authController');
 
@@ -24,6 +25,7 @@ router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);
 router.post('/update-password-direct', updatePasswordDirect); // For testing purposes
 router.get('/verify-email/:token', verifyEmail);
+router.get('/verify-email-otp/:otp', verifyEmailOTP);
 router.post('/resend-verification', resendEmailVerification);
 
 // Protected routes

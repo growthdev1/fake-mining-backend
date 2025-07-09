@@ -73,7 +73,9 @@ const userSchema = new mongoose.Schema({
     default: false
   },
   emailVerificationToken: String,
-  emailVerificationExpire: Date
+  emailVerificationExpire: Date,
+  emailVerificationOTP: String,
+  emailVerificationOTPExpire: Date
 }, {
   timestamps: true
 });
@@ -149,6 +151,18 @@ userSchema.methods.getEmailVerificationToken = function() {
   this.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
   return verificationToken;
+};
+
+// Generate email verification OTP
+userSchema.methods.generateEmailVerificationOTP = function() {
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Set OTP and expiry (10 minutes)
+  this.emailVerificationOTP = otp;
+  this.emailVerificationOTPExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  return otp;
 };
 
 module.exports = mongoose.model('User', userSchema);

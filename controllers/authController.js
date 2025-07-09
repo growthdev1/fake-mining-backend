@@ -35,21 +35,17 @@ exports.register = async (req, res, next) => {
       emailVerified: false
     });
 
-    // Generate email verification token
-    const verificationToken = user.getEmailVerificationToken();
+    // Generate email verification OTP
+    const verificationOTP = user.generateEmailVerificationOTP();
     await user.save({ validateBeforeSave: false });
 
-    // Create verification URL
-    const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
-
-    const message = `Please verify your email by clicking on this link: \n\n ${verificationUrl}`;
+    const message = `Your email verification OTP is: ${verificationOTP}\n\nThis OTP will expire in 10 minutes.`;
     const htmlMessage = `
       <h2>Email Verification</h2>
-      <p>Please verify your email by clicking the link below:</p>
-      <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
-      <p>If the button doesn't work, copy and paste this link in your browser:</p>
-      <p>${verificationUrl}</p>
-      <p>This link will expire in 24 hours.</p>
+      <p>Your email verification OTP is:</p>
+      <h1 style="color: #4CAF50; font-size: 32px; letter-spacing: 5px;">${verificationOTP}</h1>
+      <p>Please enter this OTP in the app to verify your email.</p>
+      <p>This OTP will expire in 10 minutes.</p>
     `;
 
     try {
@@ -456,6 +452,44 @@ exports.verifyEmail = async (req, res, next) => {
     res.status(500).json({
       success: false,
       message: 'Server error during email verification'
+    });
+  }
+};
+
+// @desc    Verify email with OTP
+// @route   GET /api/auth/verify-email-otp/:otp
+// @access  Public
+exports.verifyEmailOTP = async (req, res, next) => {
+  try {
+    const { otp } = req.params;
+
+    const user = await User.findOne({
+      emailVerificationOTP: otp,
+      emailVerificationOTPExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Set email as verified
+    user.emailVerified = true;
+    user.emailVerificationOTP = undefined;
+    user.emailVerificationOTPExpire = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully with OTP'
+    });
+  } catch (error) {
+    console.error('Email OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during OTP verification'
     });
   }
 };
