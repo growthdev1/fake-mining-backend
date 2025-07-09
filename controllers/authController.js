@@ -457,23 +457,26 @@ exports.verifyEmail = async (req, res, next) => {
 };
 
 // @desc    Verify email with OTP
-// @route   GET /api/auth/verify-email-otp/:otp
+// @route   GET /api/auth/verify-email-otp/:otp/:email
 // @access  Public
 exports.verifyEmailOTP = async (req, res, next) => {
   try {
-    const { otp } = req.params;
+    const { otp, email } = req.params;
 
     // TEMPORARY: Accept any 4-digit OTP for development
     if (otp && otp.length === 4 && /^\d{4}$/.test(otp)) {
-      console.log(`Development mode: Accepting any 4-digit OTP: ${otp}`);
+      console.log(`Development mode: Accepting any 4-digit OTP: ${otp} for email: ${email}`);
 
-      // Find any user with unverified email (for development)
-      const user = await User.findOne({ emailVerified: false });
+      // Find specific user by email with unverified status
+      const user = await User.findOne({
+        email: email.toLowerCase(),
+        emailVerified: false
+      });
 
       if (!user) {
         return res.status(400).json({
           success: false,
-          message: 'No unverified user found'
+          message: `No unverified user found with email: ${email}`
         });
       }
 
@@ -482,6 +485,8 @@ exports.verifyEmailOTP = async (req, res, next) => {
       user.emailVerificationOTP = undefined;
       user.emailVerificationOTPExpire = undefined;
       await user.save();
+
+      console.log(`Email verified successfully for user: ${user.email}`);
 
       return res.status(200).json({
         success: true,
