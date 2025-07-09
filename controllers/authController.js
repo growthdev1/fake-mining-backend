@@ -107,6 +107,7 @@ exports.getMe = async (req, res, next) => {
         name: user.name,
         email: user.email,
         isActive: user.isActive,
+        referralCode: user.referralCode,
         lastLogin: user.lastLogin,
         createdAt: user.createdAt
       }

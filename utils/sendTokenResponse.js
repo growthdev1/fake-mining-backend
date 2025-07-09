@@ -24,6 +24,7 @@ const sendTokenResponse = (user, statusCode, res) => {
         name: user.name,
         email: user.email,
         isActive: user.isActive,
+        referralCode: user.referralCode,
         createdAt: user.createdAt
       }
     });
